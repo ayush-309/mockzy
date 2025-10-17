@@ -16,6 +16,8 @@ const interviewDetailsSchema = z.object({
 export async function POST(request: Request) {
   const body = await request.json();
 
+  console.log("Received request body:", JSON.stringify(body, null, 2));
+
   try {
     // Check if this is a direct interview generation (old format) or conversation-based
     if (body.conversationText) {
