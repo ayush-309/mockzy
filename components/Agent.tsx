@@ -19,7 +19,7 @@ const interviewGenerationConfig: CreateAssistantDTO = {
   // Model and Voice configuration (use messages array for model)
   model: {
     provider: "openai",
-    model: "gpt-4",
+    model: "gpt-3.5-turbo",
     messages: [
       {
         role: "system",
@@ -30,13 +30,45 @@ const interviewGenerationConfig: CreateAssistantDTO = {
   },
   // Use a compatible voice provider like the existing interviewer config
   voice: {
-    provider: "11labs",
-    voiceId: "paige",
+    provider: "vapi",
+    voiceId: "Paige",
+  },
+  transcriber: {
+    provider: "deepgram",
+    model: "nova-2",
+    language: "en",
   },
   // Note: the previous 'tools' and 'serverUrl' fields were removed because they
   // didn't match the SDK's CreateAssistantDTO shape. If you need remote
   // function/tool execution, we'll add them with the correct typed shape after
   // inspecting the SDK docs or types.
+};
+// Additional runtime-only fields (tools/serverUrl) are not part of the
+// strict CreateAssistantDTO type in the installed SDK typings. We keep the
+// fields here for runtime usage but cast to any when calling vapi.start so
+// TypeScript doesn't complain.
+const interviewGenerationRuntimeExtras = {
+  tools: [
+    {
+      type: "function",
+      function: {
+        name: "generateInterview",
+        description: "Gathers all the necessary information from the user to generate a job interview.",
+        parameters: {
+          type: "object",
+          properties: {
+            role: { type: "string" },
+            type: { type: "string" },
+            level: { type: "string" },
+            techstack: { type: "string" },
+            amount: { type: "number" },
+          },
+          required: ["role", "type", "level", "techstack", "amount"],
+        },
+      },
+    },
+  ],
+  serverUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/vapi/generate?userId={userId}`,
 };
 
 enum CallStatus {
@@ -150,8 +182,9 @@ const Agent = ({
     // Check if we are generating an interview
   if (type === 'generate') {
     // Pass the entire configuration object instead of an ID.
-    // The `serverUrl` inside the config will handle the API call.
-    await vapi.start(interviewGenerationConfig, {
+    // Merge runtime extras (tools/serverUrl) and cast to any so TypeScript
+    // doesn't complain about SDK typing differences.
+    await vapi.start({ ...interviewGenerationConfig, ...interviewGenerationRuntimeExtras } as any, {
       variableValues: {
         username: userName,
         userId: userId,
