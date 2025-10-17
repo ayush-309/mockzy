@@ -5,71 +5,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
 
-// This object defines the entire workflow in code.
-const interviewGenerationConfig: CreateAssistantDTO = {
-  name: "Interview Generator",
-  // 1. Greet the user with this first message.
-  firstMessage:
-    "Hello {username}, let's prepare your interview. I'll ask you a few questions and generate a perfect interview just for you. Are you ready?",
-  // Model and Voice configuration (use messages array for model)
-  model: {
-    provider: "openai",
-    model: "gpt-3.5-turbo",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a helpful assistant responsible for gathering information from the user to set up a job interview simulation. Be friendly, concise, and clear in your questions.",
-      },
-    ],
-  },
-  // Use a compatible voice provider like the existing interviewer config
-  voice: {
-    provider: "vapi",
-    voiceId: "Paige",
-  },
-  transcriber: {
-    provider: "deepgram",
-    model: "nova-2",
-    language: "en",
-  },
-  // Note: the previous 'tools' and 'serverUrl' fields were removed because they
-  // didn't match the SDK's CreateAssistantDTO shape. If you need remote
-  // function/tool execution, we'll add them with the correct typed shape after
-  // inspecting the SDK docs or types.
-};
-// Additional runtime-only fields (tools/serverUrl) are not part of the
-// strict CreateAssistantDTO type in the installed SDK typings. We keep the
-// fields here for runtime usage but cast to any when calling vapi.start so
-// TypeScript doesn't complain.
-const interviewGenerationRuntimeExtras = {
-  tools: [
-    {
-      type: "function",
-      function: {
-        name: "generateInterview",
-        description: "Gathers all the necessary information from the user to generate a job interview.",
-        parameters: {
-          type: "object",
-          properties: {
-            role: { type: "string" },
-            type: { type: "string" },
-            level: { type: "string" },
-            techstack: { type: "string" },
-            amount: { type: "number" },
-          },
-          required: ["role", "type", "level", "techstack", "amount"],
-        },
-      },
-    },
-  ],
-  serverUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/vapi/generate?userId={userId}`,
-};
+// Replace this with your assistant ID from the Vapi dashboard
+const INTERVIEW_GENERATOR_ASSISTANT_ID = process.env.NEXT_PUBLIC_VAPI_INTERVIEW_ASSISTANT_ID || "";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -167,9 +108,44 @@ const Agent = ({
       }
     };
 
+    const handleGenerateInterview = async (messages: SavedMessage[]) => {
+      console.log("Generating interview from conversation...");
+
+      // Extract the interview details from the conversation
+      const conversationText = messages
+        .map((msg) => `${msg.role}: ${msg.content}`)
+        .join("\n");
+
+      try {
+        const response = await fetch("/api/vapi/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            conversationText,
+            userid: userId,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          console.log("Interview generated successfully!");
+          router.push("/");
+        } else {
+          console.error("Failed to generate interview");
+          router.push("/");
+        }
+      } catch (error) {
+        console.error("Error generating interview:", error);
+        router.push("/");
+      }
+    };
+
     if (callStatus === CallStatus.FINISHED) {
       if (type === "generate") {
-        router.push("/");
+        handleGenerateInterview(messages);
       } else {
         handleGenerateFeedback(messages);
       }
@@ -181,10 +157,8 @@ const Agent = ({
 
     // Check if we are generating an interview
   if (type === 'generate') {
-    // Pass the entire configuration object instead of an ID.
-    // Merge runtime extras (tools/serverUrl) and cast to any so TypeScript
-    // doesn't complain about SDK typing differences.
-    await vapi.start({ ...interviewGenerationConfig, ...interviewGenerationRuntimeExtras } as any, {
+    // Use the assistant ID from your Vapi dashboard
+    await vapi.start(INTERVIEW_GENERATOR_ASSISTANT_ID, {
       variableValues: {
         username: userName,
         userId: userId,
@@ -200,6 +174,7 @@ const Agent = ({
 
       await vapi.start(interviewer, {
         variableValues: {
+          username: userName,
           questions: formattedQuestions,
         },
       });
