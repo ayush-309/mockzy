@@ -5,9 +5,39 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
+import { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
+
+// This object defines the entire workflow in code.
+const interviewGenerationConfig: CreateAssistantDTO = {
+  name: "Interview Generator",
+  // 1. Greet the user with this first message.
+  firstMessage:
+    "Hello {username}, let's prepare your interview. I'll ask you a few questions and generate a perfect interview just for you. Are you ready?",
+  // Model and Voice configuration (use messages array for model)
+  model: {
+    provider: "openai",
+    model: "gpt-4",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a helpful assistant responsible for gathering information from the user to set up a job interview simulation. Be friendly, concise, and clear in your questions.",
+      },
+    ],
+  },
+  // Use a compatible voice provider like the existing interviewer config
+  voice: {
+    provider: "11labs",
+    voiceId: "paige",
+  },
+  // Note: the previous 'tools' and 'serverUrl' fields were removed because they
+  // didn't match the SDK's CreateAssistantDTO shape. If you need remote
+  // function/tool execution, we'll add them with the correct typed shape after
+  // inspecting the SDK docs or types.
+};
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -117,13 +147,16 @@ const Agent = ({
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
 
-    if (type === "generate") {
-      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-        variableValues: {
-          username: userName,
-          userid: userId,
-        },
-      });
+    // Check if we are generating an interview
+  if (type === 'generate') {
+    // Pass the entire configuration object instead of an ID.
+    // The `serverUrl` inside the config will handle the API call.
+    await vapi.start(interviewGenerationConfig, {
+      variableValues: {
+        username: userName,
+        userId: userId,
+      },
+    });
     } else {
       let formattedQuestions = "";
       if (questions) {
@@ -195,17 +228,17 @@ const Agent = ({
       )}
 
       <div className="w-full flex justify-center">
-        {callStatus !== "ACTIVE" ? (
+        {callStatus !== CallStatus.ACTIVE ? (
           <button className="relative btn-call" onClick={() => handleCall()}>
             <span
               className={cn(
                 "absolute animate-ping rounded-full opacity-75",
-                callStatus !== "CONNECTING" && "hidden"
+                callStatus !== CallStatus.CONNECTING && "hidden"
               )}
             />
 
             <span className="relative">
-              {callStatus === "INACTIVE" || callStatus === "FINISHED"
+              {callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED
                 ? "Call"
                 : ". . ."}
             </span>
