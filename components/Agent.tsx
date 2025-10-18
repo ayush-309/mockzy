@@ -130,9 +130,10 @@ const Agent = ({
 
         const result = await response.json();
 
-        if (result.success) {
-          console.log("Interview generated successfully!");
-          router.push("/");
+        if (result.success && result.interviewId) {
+          console.log("Interview generated successfully! ID:", result.interviewId);
+          // Redirect to the interview page to start the actual interview
+          router.push(`/interview/${result.interviewId}`);
         } else {
           console.error("Failed to generate interview");
           router.push("/");

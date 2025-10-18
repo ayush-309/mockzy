@@ -77,9 +77,9 @@ If any information is missing or unclear, use reasonable defaults:
         createdAt: new Date().toISOString(),
       };
 
-      await db.collection("interviews").add(interview);
+      const docRef = await db.collection("interviews").add(interview);
 
-      return Response.json({ success: true }, { status: 200 });
+      return Response.json({ success: true, interviewId: docRef.id }, { status: 200 });
     } else {
       // Old approach: Direct parameters (for backward compatibility or webhook)
       const { type, role, level, techstack, amount, userid } = body;
@@ -113,9 +113,9 @@ If any information is missing or unclear, use reasonable defaults:
         createdAt: new Date().toISOString(),
       };
 
-      await db.collection("interviews").add(interview);
+      const docRef = await db.collection("interviews").add(interview);
 
-      return Response.json({ success: true }, { status: 200 });
+      return Response.json({ success: true, interviewId: docRef.id }, { status: 200 });
     }
   } catch (error) {
     console.error("Error:", error);
