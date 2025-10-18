@@ -132,8 +132,19 @@ const Agent = ({
 
         if (result.success && result.interviewId) {
           console.log("Interview generated successfully! ID:", result.interviewId);
-          // Redirect to the interview page to start the actual interview
-          router.push(`/interview/${result.interviewId}`);
+          
+          // Show success message and prompt user to start the interview
+          const startInterview = confirm(
+            "🎉 Your interview has been generated successfully!\n\nWould you like to start the interview now?"
+          );
+          
+          if (startInterview) {
+            // Redirect to the interview page to start the actual interview
+            router.push(`/interview/${result.interviewId}`);
+          } else {
+            // Go back to home page
+            router.push("/");
+          }
         } else {
           console.error("Failed to generate interview");
           router.push("/");
